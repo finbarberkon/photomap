@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>where</title>
+  <meta name="description" content="A map of places I've photographed.">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="vendor/markercluster/MarkerCluster.css">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <main id="map" aria-label="Map of photographed places"></main>
+
+  <p id="status" class="status" role="status" hidden></p>
+
+  <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-label="Photo" hidden>
+    <button class="viewer-close" id="viewer-close" type="button" aria-label="Close photo">&times;</button>
+    <button class="viewer-nav viewer-prev" id="viewer-prev" type="button" aria-label="Previous photo">&#8249;</button>
+    <button class="viewer-nav viewer-next" id="viewer-next" type="button" aria-label="Next photo">&#8250;</button>
+
+    <figure class="viewer-figure">
+      <div class="viewer-frame">
+        <img id="viewer-img" alt="">
+        <span class="viewer-spinner" id="viewer-spinner" aria-hidden="true"></span>
+      </div>
+      <figcaption class="viewer-caption">
+        <span class="viewer-title" id="viewer-title"></span>
+        <span class="viewer-meta" id="viewer-meta"></span>
+      </figcaption>
+    </figure>
+
+    <p class="viewer-count" id="viewer-count"></p>
+  </div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/markercluster/leaflet.markercluster.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

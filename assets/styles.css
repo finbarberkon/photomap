@@ -1,0 +1,344 @@
+:root {
+  --accent: #d94f2b;
+  --accent-dark: #b93c1c;
+  --ink: #1c2024;
+  --map-bg: #eef1f4;
+  --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--map-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+body.viewer-open {
+  overflow: hidden;
+}
+
+/* ----------------------------------------------------------------- map --- */
+
+#map {
+  position: fixed;
+  inset: 0;
+  background: var(--map-bg);
+}
+
+.leaflet-container {
+  font-family: var(--font);
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+/* Dots ------------------------------------------------------------------ */
+
+.photo-dot {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-dot span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.photo-dot:hover span,
+.photo-dot:focus-visible span {
+  transform: scale(1.4);
+  background: var(--accent-dark);
+}
+
+.photo-dot:focus-visible {
+  outline: none;
+}
+
+.photo-dot:focus-visible span {
+  box-shadow: 0 0 0 3px rgba(217, 79, 43, 0.35), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Clusters --------------------------------------------------------------- */
+
+.cluster-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  font: 600 13px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.cluster-dot:hover {
+  background: var(--accent-dark);
+  transform: scale(1.06);
+}
+
+/* -------------------------------------------------------------- viewer --- */
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 56px 8px 40px;
+  background: rgba(14, 16, 20, 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  backdrop-filter: blur(18px) saturate(120%);
+  animation: viewer-in 160ms ease-out;
+}
+
+.viewer[hidden] {
+  display: none;
+}
+
+@keyframes viewer-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.viewer-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  cursor: zoom-out;
+}
+
+.viewer-frame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-frame img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(92vw, 1600px);
+  max-height: 78vh;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  background: #0b0c0e;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.viewer-frame img.is-loaded {
+  opacity: 1;
+}
+
+.viewer-spinner {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.22);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  animation: spin 700ms linear infinite;
+}
+
+.viewer-spinner[hidden] {
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.viewer-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  max-width: min(92vw, 1000px);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.viewer-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.viewer-title:empty {
+  display: none;
+}
+
+.viewer-meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.58);
+  font-variant-numeric: tabular-nums;
+}
+
+.viewer-count {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.viewer-close,
+.viewer-nav {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.viewer-close:hover,
+.viewer-nav:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.viewer-close:focus-visible,
+.viewer-nav:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.viewer-close {
+  top: max(14px, env(safe-area-inset-top));
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.viewer-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  font-size: 30px;
+  line-height: 1;
+  padding-bottom: 4px;
+}
+
+.viewer-prev {
+  left: 14px;
+}
+
+.viewer-next {
+  right: 14px;
+}
+
+/* -------------------------------------------------------------- status --- */
+
+.status {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  margin: 0;
+  padding: 10px 16px;
+  max-width: min(90vw, 460px);
+  border-radius: 999px;
+  background: rgba(28, 32, 36, 0.9);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+
+.status[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------- mobile --- */
+
+@media (max-width: 560px) {
+  .viewer {
+    padding: 48px 4px 34px;
+  }
+
+  .viewer-frame img {
+    max-height: 72vh;
+    border-radius: 6px;
+  }
+
+  .viewer-nav {
+    width: 36px;
+    height: 36px;
+    font-size: 26px;
+  }
+
+  .viewer-prev {
+    left: 6px;
+  }
+
+  .viewer-next {
+    right: 6px;
+  }
+
+  .viewer-title {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer,
+  .viewer-frame img,
+  .photo-dot span,
+  .cluster-dot {
+    animation: none;
+    transition: none;
+  }
+}

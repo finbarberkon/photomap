@@ -1,0 +1,7 @@
+.venv/
+.DS_Store
+__pycache__/
+
+# Full-resolution originals stay on your machine; only photos/web/ is published.
+photos/source/
+photos/skipped.txt
