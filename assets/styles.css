@@ -145,7 +145,6 @@ body.viewer-open {
   align-items: center;
   gap: 12px;
   max-width: 100%;
-  cursor: zoom-out;
 }
 
 .viewer-frame {
@@ -161,7 +160,6 @@ body.viewer-open {
   height: auto;
   max-width: min(92vw, 1600px);
   max-height: 78vh;
-  border-radius: 10px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
   background: #0b0c0e;
   opacity: 0;
@@ -316,7 +314,6 @@ body.viewer-open {
 
   .viewer-frame img {
     max-height: 72vh;
-    border-radius: 6px;
   }
 
   .viewer-nav {
