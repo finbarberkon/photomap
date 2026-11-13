@@ -14,7 +14,6 @@
 
   var state = {
     photos: [],
-    index: -1,
     map: null,
     markerGroup: null,
     lastFocus: null,
@@ -33,13 +32,7 @@
     el.viewer = $('viewer');
     el.image = $('viewer-img');
     el.spinner = $('viewer-spinner');
-    el.title = $('viewer-title');
-    el.meta = $('viewer-meta');
-    el.count = $('viewer-count');
     el.close = $('viewer-close');
-    el.prev = $('viewer-prev');
-    el.next = $('viewer-next');
-    el.figure = el.viewer.querySelector('.viewer-figure');
   }
 
   /* ----------------------------------------------------------- helpers --- */
@@ -64,15 +57,6 @@
       month: 'short',
       day: 'numeric'
     });
-  }
-
-  function formatCoords(lat, lon) {
-    var ns = lat >= 0 ? 'N' : 'S';
-    var ew = lon >= 0 ? 'E' : 'W';
-    return (
-      Math.abs(lat).toFixed(4) + '° ' + ns + ', ' +
-      Math.abs(lon).toFixed(4) + '° ' + ew
-    );
   }
 
   function label(photo) {
@@ -116,8 +100,10 @@
       zoomControl: false,
       minZoom: 2,
       maxZoom: 19,
-      worldCopyJump: true,
       zoomSnap: 0.25,
+      // Panning past the antimeridian re-centres by a full world instead of
+      // sliding into an empty copy of the map with no dots on it.
+      worldCopyJump: true,
       attributionControl: true
     }).setView([20, 0], 2);
 
@@ -134,7 +120,11 @@
     state.markerGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
-      removeOutsideVisibleBounds: true,
+      // Markercluster prunes markers it believes are off screen, and does not
+      // reliably add them back: a dot that panning or zooming pushed out (or
+      // that was mid-load) is gone for good. Keep every marker placed instead;
+      // a few hundred markers is cheap.
+      removeOutsideVisibleBounds: false,
       chunkedLoading: true,
       maxClusterRadius: 46,
       iconCreateFunction: clusterIcon
@@ -176,7 +166,6 @@
     if (!state.photos.length) return;
 
     var photo = state.photos[(index + state.photos.length) % state.photos.length];
-    state.index = state.photos.indexOf(photo);
 
     if (el.viewer.hidden) {
       state.lastFocus = document.activeElement;
@@ -208,16 +197,7 @@
     };
     el.image.src = photo.file;
 
-    el.title.textContent = photo.title || '';
-    el.meta.textContent = [
-      formatDate(photo.date),
-      formatCoords(photo.lat, photo.lon)
-    ]
-      .filter(Boolean)
-      .join('  ·  ');
-    el.count.textContent = state.index + 1 + ' / ' + state.photos.length;
     el.viewer.setAttribute('aria-label', label(photo));
-
     document.title = label(photo) + ' — where';
     replaceHash(photo.id);
     el.close.focus({ preventScroll: true });
@@ -239,7 +219,6 @@
     if (state.lastFocus && document.contains(state.lastFocus)) {
       state.lastFocus.focus({ preventScroll: true });
     }
-    state.index = -1;
   }
 
   function replaceHash(id) {
@@ -263,8 +242,7 @@
   /* -------------------------------------------------------------- wiring -- */
 
   function bindEvents() {
-    el.viewer.addEventListener('click', function (event) {
-      if (event.target.closest('.viewer-nav')) return;
+    el.viewer.addEventListener('click', function () {
       close();
     });
 
@@ -273,27 +251,8 @@
       close();
     });
 
-    el.prev.addEventListener('click', function (event) {
-      event.stopPropagation();
-      open(state.index - 1);
-    });
-
-    el.next.addEventListener('click', function (event) {
-      event.stopPropagation();
-      open(state.index + 1);
-    });
-
     document.addEventListener('keydown', function (event) {
-      if (el.viewer.hidden) return;
-      if (event.key === 'Escape') {
-        close();
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        open(state.index - 1);
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        open(state.index + 1);
-      }
+      if (!el.viewer.hidden && event.key === 'Escape') close();
     });
 
     window.addEventListener('hashchange', function () {

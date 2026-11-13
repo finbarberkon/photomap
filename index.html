@@ -17,21 +17,10 @@
 
   <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-label="Photo" hidden>
     <button class="viewer-close" id="viewer-close" type="button" aria-label="Close photo">&times;</button>
-    <button class="viewer-nav viewer-prev" id="viewer-prev" type="button" aria-label="Previous photo">&#8249;</button>
-    <button class="viewer-nav viewer-next" id="viewer-next" type="button" aria-label="Next photo">&#8250;</button>
-
-    <figure class="viewer-figure">
-      <div class="viewer-frame">
-        <img id="viewer-img" alt="">
-        <span class="viewer-spinner" id="viewer-spinner" aria-hidden="true"></span>
-      </div>
-      <figcaption class="viewer-caption">
-        <span class="viewer-title" id="viewer-title"></span>
-        <span class="viewer-meta" id="viewer-meta"></span>
-      </figcaption>
-    </figure>
-
-    <p class="viewer-count" id="viewer-count"></p>
+    <div class="viewer-frame">
+      <img id="viewer-img" alt="">
+      <span class="viewer-spinner" id="viewer-spinner" aria-hidden="true"></span>
+    </div>
   </div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
