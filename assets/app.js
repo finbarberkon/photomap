@@ -6,10 +6,11 @@
 (function () {
   'use strict';
 
-  var TILES = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  // OpenStreetMap's public tiles need no key. They are desaturated in
+  // styles.css (.map-tiles) so the photo dots stay the focal point.
+  var TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   var ATTRIBUTION =
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
-    'contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   var state = {
     photos: [],
@@ -122,9 +123,9 @@
 
     L.tileLayer(TILES, {
       attribution: ATTRIBUTION,
-      subdomains: 'abcd',
-      detectRetina: true,
-      maxZoom: 20
+      className: 'map-tiles',
+      maxZoom: 19,
+      maxNativeZoom: 19
     }).addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);

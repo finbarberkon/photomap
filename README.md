@@ -101,5 +101,6 @@ tools/prep.py         the only script: EXIF -> web copies + photos.json
 vendor/               Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 ```
 
-Map tiles are the CARTO Positron basemap, with data from OpenStreetMap.
-Each photo also has a linkable address: `/#img-1620` opens that photo directly.
+Map tiles are OpenStreetMap's public tiles (no API key), desaturated with CSS
+so the dots stand out. Each photo also has a linkable address: `/#img-1620`
+opens that photo directly.

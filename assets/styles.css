@@ -40,6 +40,11 @@ body.viewer-open {
   font-family: var(--font);
 }
 
+/* Mute the basemap so the photo dots stay the focal point. */
+.map-tiles {
+  filter: grayscale(1) brightness(1.05) contrast(0.92);
+}
+
 .leaflet-control-attribution {
   font-size: 10px;
   background: rgba(255, 255, 255, 0.72);
