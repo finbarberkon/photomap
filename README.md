@@ -1,6 +1,7 @@
 # where
 
-A small map of the places I've photographed. Dots on a world map; click one and
+A small map of the places I've photographed. Each photo is a small square
+thumbnail on the map, and photos taken close together stack up; click one and
 the photo opens full screen, Quick Look style. Click again (or press Esc) and
 you're back on the map.
 
@@ -57,13 +58,11 @@ Useful flags:
 | `.venv/bin/python tools/prep.py --force` | re-encode everything (e.g. after changing the size below) |
 | `.venv/bin/python tools/prep.py --prune` | also delete web copies whose source is gone |
 
-Size and quality live at the top of `tools/prep.py` (`MAX_EDGE`, `JPEG_QUALITY`).
+Size and quality live at the top of `tools/prep.py` (`MAX_EDGE`,
+`JPEG_QUALITY`, `THUMB_SIZE`).
 
-### Titles
-
-By default a photo is titled after its parent folder (`Japan/Kyoto/...` becomes
-"Kyoto"). Edit `"title"` in `photos.json` to change it; hand-written titles
-survive `make prep`. Photos with no title just show their date and coordinates.
+Photos have no captions or place names: the map shows the picture alone, so
+there is nothing to keep in sync as the library grows.
 
 Moving or renaming a source file makes it look like a new photo on the next run
 (it gets a new entry and web copy). Run `--prune` afterwards to remove the old
@@ -72,9 +71,9 @@ copy.
 ### What gets committed
 
 Only `photos/web/` and `photos.json` are committed. `photos/source/` is
-ignored, so the repo stays around 200–400 KB per photo instead of several
-megabytes, and your original files stay where they are. Keep your own backup of
-the originals — they are not in the repo.
+ignored, so the repo stays around 200–400 KB per photo (plus a 2–6 KB marker
+thumbnail) instead of several megabytes, and your original files stay where they
+are. Keep your own backup of the originals — they are not in the repo.
 
 ## Publishing on GitHub Pages
 
@@ -92,15 +91,16 @@ The site is entirely static, so any static host works. For GitHub Pages:
 
 ```
 index.html            page shell and photo overlay
-assets/app.js         load photos.json, draw dots, open/close photos
-assets/styles.css     map dots, clusters, overlay
-photos.json           generated index: id, file, lat, lon, date, title
+assets/app.js         load photos.json, draw thumbnails and stacks, open photos
+assets/styles.css     thumbnails, stacks, overlay
+photos.json           generated index: id, file, thumb, lat, lon, date
 photos/web/*.jpg      generated 1600px web copies (committed)
+photos/web/thumbs/    generated 144px square markers (committed)
 photos/source/        your originals (not committed)
-tools/prep.py         the only script: EXIF -> web copies + photos.json
+tools/prep.py         the only script: EXIF -> web copies, thumbs + photos.json
 vendor/               Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 ```
 
 Map tiles are OpenStreetMap's public tiles (no API key), desaturated with CSS
-so the dots stand out. Each photo also has a linkable address: `/#img-1620`
-opens that photo directly.
+so the thumbnails stand out. Each photo also has a linkable address:
+`/#img-1620` opens that photo directly.

@@ -8,8 +8,8 @@ Photos are read from photos/source/ (any nesting depth, originals ignored by
 git). Served copies are written to photos/web/ and the map index to
 photos.json. Photos without GPS are listed in photos/skipped.txt.
 
-Hand-edited "title" values in photos.json survive re-runs; delete the value
-(or the whole entry) to fall back to the folder name.
+Photos carry no captions or place names: the map shows the picture alone, so
+there is nothing to keep in sync as the library grows.
 """
 
 from __future__ import annotations
@@ -45,6 +45,7 @@ except ImportError:  # pragma: no cover - optional dependency
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = ROOT / "photos" / "source"
 WEB_DIR = ROOT / "photos" / "web"
+THUMB_DIR = WEB_DIR / "thumbs"
 MANIFEST = ROOT / "photos.json"
 SKIPPED_FILE = ROOT / "photos" / "skipped.txt"
 
@@ -61,6 +62,11 @@ IMAGE_SUFFIXES = {
 
 MAX_EDGE = 1600
 JPEG_QUALITY = 80
+
+# Small square thumbnails used as map markers and in cluster stacks.
+THUMB_SIZE = 144
+THUMB_QUALITY = 72
+
 MTIME_SLACK = 1e-6
 
 
@@ -136,19 +142,18 @@ def read_metadata(path: Path) -> dict:
     return {"lat": lat, "lon": lon, "date": date}
 
 
-def derived_title(path: Path) -> str:
-    """Use the nearest parent folder inside photos/source as a title."""
-    try:
-        folder = path.parent.relative_to(SOURCE_DIR)
-    except ValueError:
-        return ""
-    if str(folder) in ("", "."):
-        return ""
-    name = folder.parts[-1]
-    return name.replace("_", " ").replace("-", " ").strip()
+def square_crop(image: Image.Image) -> Image.Image:
+    """Centre square, so portrait and landscape photos both make good markers."""
+    width, height = image.size
+    side = min(width, height)
+    left = (width - side) // 2
+    top = (height - side) // 2
+    return image.crop((left, top, left + side, top + side))
 
 
-def write_image(source: Path, destination: Path) -> tuple[int, int]:
+def write_image(
+    source: Path, destination: Path, thumbnail: Path
+) -> tuple[tuple[int, int], tuple[int, int]]:
     with Image.open(source) as opened:
         opened.seek(0)
         icc = opened.info.get("icc_profile")
@@ -197,7 +202,17 @@ def write_image(source: Path, destination: Path) -> tuple[int, int]:
         if icc:
             save_kwargs["icc_profile"] = icc
         image.save(destination, **save_kwargs)
-        return image.size
+
+        thumbnail.parent.mkdir(parents=True, exist_ok=True)
+        thumb = square_crop(image).resize((THUMB_SIZE, THUMB_SIZE), Image.LANCZOS)
+        thumb.save(
+            thumbnail,
+            format="JPEG",
+            quality=THUMB_QUALITY,
+            optimize=True,
+            progressive=True,
+        )
+        return image.size, thumb.size
 
 
 def load_manifest() -> list[dict]:
@@ -319,36 +334,26 @@ def main(argv=None) -> int:
         output = WEB_DIR / f"{name}.jpg"
         old = previous.get(rel, {})
 
-        auto_title = derived_title(source)
-        old_title = (old.get("title") or "").strip()
-        old_auto = old.get("autoTitle")
-        if old_title and (old_auto is None or old_title != old_auto):
-            title = old_title  # hand-edited: keep it
-            auto_title = None
-        else:
-            title = auto_title
-
         entry = {
             "id": name,
             "src": rel,
             "file": f"photos/web/{name}.jpg",
+            "thumb": f"photos/web/thumbs/{name}.jpg",
             "lat": meta["lat"],
             "lon": meta["lon"],
             "date": meta["date"]
             or datetime.fromtimestamp(source.stat().st_mtime).date().isoformat(),
-            "title": title,
         }
-        if auto_title:
-            entry["autoTitle"] = auto_title
         if old.get("width") and old.get("height"):
             entry["width"] = old["width"]
             entry["height"] = old["height"]
         entries.append(entry)
 
-        fresh = (
-            output.exists()
-            and output.stat().st_mtime
-            >= source.stat().st_mtime - MTIME_SLACK
+        thumbnail = THUMB_DIR / f"{name}.jpg"
+        source_mtime = source.stat().st_mtime - MTIME_SLACK
+        fresh = all(
+            path.exists() and path.stat().st_mtime >= source_mtime
+            for path in (output, thumbnail)
         )
         if args.force or not fresh:
             pending.append((source, name, entry))
@@ -359,12 +364,17 @@ def main(argv=None) -> int:
     if pending and args.dry_run:
         print(f"\nWould encode {len(pending)} photo(s):")
         for _source, name, entry in pending:
-            print(f"  {entry['src']} -> photos/web/{name}.jpg")
+            print(f"  {entry['src']} -> photos/web/{name}.jpg + thumbs/{name}.jpg")
     elif pending:
         workers = min(8, (os.cpu_count() or 4))
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
-                pool.submit(write_image, source, WEB_DIR / f"{name}.jpg"): (
+                pool.submit(
+                    write_image,
+                    source,
+                    WEB_DIR / f"{name}.jpg",
+                    THUMB_DIR / f"{name}.jpg",
+                ): (
                     source,
                     name,
                     entry,
@@ -376,7 +386,7 @@ def main(argv=None) -> int:
             for future, (source, name, entry) in futures.items():
                 rel = entry["src"]
                 try:
-                    width, height = future.result()
+                    (width, height), _thumb_size = future.result()
                 except Exception as exc:
                     failures.append((rel, f"could not encode ({exc.__class__.__name__})"))
                     if entry in entries:
@@ -391,13 +401,14 @@ def main(argv=None) -> int:
     for rel, reason in failures:
         skipped.append((rel, reason))
 
-    # Drop entries whose served copy is missing; optionally prune removed sources.
+    # Drop entries whose served copies are missing; optionally prune removed
+    # sources.
     pending_ids = {entry["id"] for _source, _name, entry in pending}
     pruned = 0
     kept: list[dict] = []
     for entry in entries:
-        web_path = ROOT / entry["file"]
-        if web_path.exists() or entry["id"] in pending_ids:
+        copies = (ROOT / entry["file"], ROOT / entry["thumb"])
+        if all(path.exists() for path in copies) or entry["id"] in pending_ids:
             kept.append(entry)
         else:
             skipped.append((entry["src"], "web copy missing; re-run to rebuild"))
@@ -409,21 +420,25 @@ def main(argv=None) -> int:
         for rel, entry in previous.items():
             if rel in live_sources:
                 continue
-            web_path = ROOT / entry.get("file", "")
-            if web_path.exists():
-                print(f"  prune {entry['file']}")
-                if not args.dry_run:
-                    web_path.unlink()
-                pruned += 1
+            for key in ("file", "thumb"):
+                stale = ROOT / entry.get(key, "")
+                if key in entry and stale.exists():
+                    print(f"  prune {entry[key]}")
+                    if not args.dry_run:
+                        stale.unlink()
+                    pruned += 1
 
         referenced = {entry["file"] for entry in entries}
-        if WEB_DIR.exists():
-            for web_path in WEB_DIR.glob("*.jpg"):
-                rel_web = web_path.relative_to(ROOT).as_posix()
-                if rel_web not in referenced:
-                    print(f"  prune orphan {rel_web}")
+        referenced_thumbs = {entry["thumb"] for entry in entries}
+        for directory, keep in ((WEB_DIR, referenced), (THUMB_DIR, referenced_thumbs)):
+            if not directory.exists():
+                continue
+            for path in directory.glob("*.jpg"):
+                rel_path = path.relative_to(ROOT).as_posix()
+                if rel_path not in keep:
+                    print(f"  prune orphan {rel_path}")
                     if not args.dry_run:
-                        web_path.unlink()
+                        path.unlink()
                     pruned += 1
 
     entries.sort(key=lambda entry: (entry.get("date") or "", entry["id"]))
