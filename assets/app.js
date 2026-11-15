@@ -133,15 +133,33 @@
     });
   }
 
+  // Keep the whole world no taller than the window: at the furthest-out zoom
+  // the map fills the height exactly, so there is no vertical panning and no
+  // empty background above or below. Recomputed when the window is resized.
+  function fitMinZoomToWindow() {
+    var zoom = state.map.getZoom();
+    var worldHeight = state.map.getPixelWorldBounds(zoom).getSize().y;
+    var target = zoom + Math.log(state.map.getSize().y / worldHeight) / Math.LN2;
+    state.map.setMinZoom(Math.max(0, Math.min(target, state.map.getMaxZoom())));
+  }
+
   function initMap() {
     var map = L.map(el.map, {
       zoomControl: false,
       minZoom: 2,
       maxZoom: 19,
-      zoomSnap: 0.25,
+      // No snapping: the window-fitted fractional min zoom set by
+      // fitMinZoomToWindow() must be reachable, and snapping would round it
+      // back up to 2.
+      zoomSnap: 0,
       // Panning past the antimeridian re-centres by a full world instead of
       // sliding into an empty copy of the map with no dots on it.
       worldCopyJump: true,
+      // Stop the view leaving the map's top and bottom edges. Latitude is
+      // clipped to Web Mercator's extent; longitude spans several worlds so
+      // horizontal wrap still works and the extra marker copies stay reachable.
+      maxBounds: [[-85.051129, -1440], [85.051129, 1440]],
+      maxBoundsViscosity: 1,
       attributionControl: true
     }).setView([20, 0], 2);
 
@@ -155,6 +173,13 @@
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     state.map = map;
+
+    // Set the zoom floor before the cluster group is created: markercluster
+    // builds its zoom grids from the map's min zoom when it is added and does
+    // not rebuild them if the floor changes later.
+    fitMinZoomToWindow();
+    map.on('resize', fitMinZoomToWindow);
+
     state.markerGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
