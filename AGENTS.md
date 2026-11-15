@@ -71,6 +71,27 @@ vendor/               vendored Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 - Adding a field to a manifest entry means updating `tools/prep.py`, the
   `app.js` header comment, and any consumption in `app.js`.
 
+## Cluster animation (front end)
+
+Clustering, joins/splits and their fade live in vendored markercluster, which
+models a photo (`L.Marker`) and a stack (`L.MarkerCluster`) as different node
+types. On a zoom-out join its own fade only reaches an incoming cluster's direct
+markers and child clusters exactly one level down, so a nested stack or a lone
+photo under a single-parent chain stays opaque until the plugin's 300ms cleanup
+timer removes it. `assets/app.js` patches
+`L.MarkerCluster.prototype._recursivelyAnimateChildrenIn` to recurse over both
+`_childClusters` and `_markers`, so every outgoing descendant is moved and faded
+the same way.
+
+That patch monkeypatches a plugin internal, so it is pinned to the vendored
+markercluster version and must be re-checked if `vendor/` is ever updated. A
+cleaner long-term direction is to replace markercluster's model/render pass
+with our own uniform node tree, where a photo and an n-cluster are genuinely
+the same object and the animation recurses over one `children()` accessor. That
+deletes the patch and the last node-type special cases, and is the natural fit
+for the planned n-cluster (shown as a 3-card stack with a count). The cost is owning clustering, visibility, pruning
+and the animation details markercluster currently handles. Not scheduled.
+
 ## `make prep` behaviour worth knowing
 
 - Scans `photos/source/` recursively; reuses previous output names so new

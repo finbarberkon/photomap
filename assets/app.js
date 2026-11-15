@@ -316,6 +316,33 @@
       spiderfyDistanceMultiplier: 1.6,
       iconCreateFunction: clusterIcon
     }).addTo(map);
+
+    // markercluster fades a joining cluster into the incoming stack by moving
+    // and hiding its outgoing children. Its own version only reaches direct
+    // markers and child clusters exactly one level down, so a nested stack or
+    // a lone photo under a single-parent chain stays opaque until the cleanup
+    // timer pops it. Walk every descendant instead: photos and clusters share
+    // _icon / _setPos / clusterHide, so one recursion fades them all the same.
+    //
+    // This patches a markercluster internal, so it is tied to the vendored
+    // version and must be re-checked if that is updated. A cleaner long-term
+    // direction is to do our own clustering/render pass over a uniform node
+    // tree, where a photo and an n-cluster are the same object and the
+    // animation recurses over one children() accessor. That would remove this
+    // patch and the last node-type special cases. See AGENTS.md, "Cluster
+    // animation".
+    L.MarkerCluster.prototype._recursivelyAnimateChildrenIn = function (bounds, point) {
+      function hide(node) {
+        if (node._icon) {
+          node._setPos(point);
+          node.clusterHide();
+        }
+        (node._childClusters || []).forEach(hide);
+        (node._markers || []).forEach(hide);
+      }
+      (this._childClusters || []).forEach(hide);
+      (this._markers || []).forEach(hide);
+    };
   }
 
   function drawPhotos() {
