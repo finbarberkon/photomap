@@ -12,6 +12,16 @@
   var ATTRIBUTION =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
+  // The map opens fully zoomed out, centred on this longitude (Sydney).
+  var START_LNG = 151.2093;
+
+  // Smooth wheel/pinch zoom gains, as a multiplier on Leaflet's natural
+  // per-gesture amount (1 = what Leaflet would move, without snapping). Ease
+  // is the fraction of the remaining distance covered each animation frame.
+  var WHEEL_GAIN = 1.5;
+  var PINCH_GAIN = 5;
+  var ZOOM_EASE = 0.2;
+
   var state = {
     photos: [],
     map: null,
@@ -143,6 +153,103 @@
     state.map.setMinZoom(Math.max(0, Math.min(target, state.map.getMaxZoom())));
   }
 
+  // Smooth wheel/pinch zoom. Leaflet's built-in handler applies zoom in
+  // debounced jumps; this eases the map toward a target zoom every animation
+  // frame so scrolling and pinching glide, keeping the point under the pointer
+  // fixed. Replaces Leaflet's handler (scrollWheelZoom is off).
+  function enableSmoothZoom(map) {
+    var target = map.getZoom();
+    var anchor = null;
+    var frame = null;
+    // Integer zoom level markercluster is currently showing.
+    var shownLevel = Math.round(map.getZoom());
+
+    // The amount Leaflet would move for a wheel delta, without the snapping.
+    // The saturating curve stops a fast flick from running away.
+    function levelsFor(delta) {
+      var x = delta / (4 * 60);
+      var magnitude = 4 * Math.log(2 / (1 + Math.exp(-Math.abs(x)))) / Math.LN2;
+      return delta < 0 ? -magnitude : magnitude;
+    }
+
+    function clampZoom(zoom) {
+      return Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), zoom));
+    }
+
+    // The centre that keeps `point` under the pointer at `zoom`.
+    function centerFor(point, zoom) {
+      var scale = map.getZoomScale(zoom);
+      var half = map.getSize().divideBy(2);
+      return map.containerPointToLatLng(
+        half.add(point.subtract(half).multiplyBy(1 - 1 / scale))
+      );
+    }
+
+    function finish() {
+      frame = null;
+      var zoom = map.getZoom();
+      map.setView(anchor ? centerFor(anchor, zoom) : map.getCenter(), zoom, {
+        animate: false
+      });
+      // setView already set this zoom during the gesture, so it fires no
+      // zoomend itself; fire one if we have not already shown this level.
+      if (Math.round(zoom) !== shownLevel) {
+        shownLevel = Math.round(zoom);
+        map.fire('zoomend');
+      }
+    }
+
+    function step() {
+      var diff = target - map.getZoom();
+      if (Math.abs(diff) < 1e-3) {
+        finish();
+        return;
+      }
+      var zoom = map.getZoom() + diff * ZOOM_EASE;
+      // Apply the same centre clamp setView will use at the end, every frame,
+      // so approaching the zoom-out limit eases into it instead of snapping.
+      var center = map._limitCenter(
+        centerFor(anchor, zoom),
+        zoom,
+        map.options.maxBounds
+      );
+      // Move without the normal move/zoomend bookkeeping; we drive those
+      // ourselves. When the rounded zoom level changes, tell markercluster so
+      // it splits/merges now instead of after the whole gesture.
+      map._move(center, zoom, { pinch: true }, true);
+      var level = Math.round(zoom);
+      if (level !== shownLevel) {
+        shownLevel = level;
+        map.fire('zoomend');
+      }
+      frame = requestAnimationFrame(step);
+    }
+
+    function onWheel(event) {
+      L.DomEvent.preventDefault(event);
+      map._stop();
+      var gain = event.ctrlKey ? PINCH_GAIN : WHEEL_GAIN;
+      target = clampZoom(target + levelsFor(L.DomEvent.getWheelDelta(event)) * gain);
+      anchor = map.mouseEventToContainerPoint(event);
+      if (!frame) frame = requestAnimationFrame(step);
+    }
+
+    map.getContainer().addEventListener('wheel', onWheel, { passive: false });
+
+    // Keep the target in step with zooms we did not drive (the zoom buttons,
+    // keyboard), so the next gesture does not jump.
+    function syncTarget() {
+      if (!frame) target = map.getZoom();
+      shownLevel = Math.round(map.getZoom());
+    }
+    map.on('zoomend', syncTarget);
+    map.on('dragstart', function () {
+      if (frame) cancelAnimationFrame(frame);
+      frame = null;
+      target = map.getZoom();
+    });
+  }
+
   function initMap() {
     var map = L.map(el.map, {
       zoomControl: false,
@@ -152,6 +259,8 @@
       // fitMinZoomToWindow() must be reachable, and snapping would round it
       // back up to 2.
       zoomSnap: 0,
+      // Wheel/pinch zoom is handled by enableSmoothZoom() below.
+      scrollWheelZoom: false,
       // Panning past the antimeridian re-centres by a full world instead of
       // sliding into an empty copy of the map with no dots on it.
       worldCopyJump: true,
@@ -161,7 +270,7 @@
       maxBounds: [[-85.051129, -1440], [85.051129, 1440]],
       maxBoundsViscosity: 1,
       attributionControl: true
-    }).setView([20, 0], 2);
+    }).setView([0, START_LNG], 2);
 
     L.tileLayer(TILES, {
       attribution: ATTRIBUTION,
@@ -174,21 +283,28 @@
 
     state.map = map;
 
+    enableSmoothZoom(map);
+
     // Set the zoom floor before the cluster group is created: markercluster
     // builds its zoom grids from the map's min zoom when it is added and does
     // not rebuild them if the floor changes later.
     fitMinZoomToWindow();
     map.on('resize', fitMinZoomToWindow);
+    // Open fully zoomed out on Sydney instead of fitted to the photos.
+    map.setView([0, START_LNG], map.getMinZoom(), { animate: false });
 
     state.markerGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
-      // Markercluster prunes markers it believes are off screen, and does not
-      // reliably add them back: a marker that panning or zooming pushed out
-      // (or that was mid-load) is gone for good. Keep every marker placed
-      // instead; a few hundred thumbnails is cheap.
-      removeOutsideVisibleBounds: false,
-      chunkedLoading: true,
+      // Prune clusters that leave the view, otherwise stacks from earlier zoom
+      // levels linger as ghosts. Add every marker up front (no chunked
+      // loading) so pruning never misses the ones that should be visible.
+      removeOutsideVisibleBounds: true,
+      chunkedLoading: false,
+      // Animate stacks joining/splitting as the level changes. This is only
+      // safe because we fire zoomend during the smooth zoom and prune
+      // off-screen clusters.
+      animate: true,
       // Thumbnails are 44px wide, so cluster anything closer than that.
       maxClusterRadius: 60,
       // Spread spiderfied thumbnails out so they do not cover each other.
@@ -228,17 +344,6 @@
     });
 
     state.markerGroup.addLayers(markers);
-
-    if (state.photos.length === 1) {
-      state.map.setView([state.photos[0].lat, state.photos[0].lon], 9);
-    } else {
-      var bounds = L.latLngBounds(
-        state.photos.map(function (photo) {
-          return [photo.lat, photo.lon];
-        })
-      );
-      state.map.fitBounds(bounds, { padding: [56, 56], maxZoom: 10 });
-    }
   }
 
   /* ------------------------------------------------------------ viewer --- */
@@ -356,9 +461,7 @@
           return;
         }
         drawPhotos();
-        if (!openFromHash()) {
-          // Map is already fitted to the photos in drawPhotos().
-        }
+        openFromHash();
       })
       .catch(function (error) {
         console.error(error);

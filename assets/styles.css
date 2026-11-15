@@ -139,8 +139,23 @@ body.viewer-open {
   z-index: 3;
 }
 
+/* TODO: hovering a stack only reacts on the top card; make the whole stack
+   respond instead (e.g. lift every card together). */
 .stack:hover img:nth-child(3) {
   transform: translateY(-2px);
+}
+
+/* Markercluster animates joins/splits over 0.3s, which visibly lags our
+   continuous smooth zoom: every reposition during a zoom gets transitioned,
+   so markers float behind the map. Speed that up so a level change is a quick
+   pop instead. The spider legs follow the same timing. */
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow {
+  transition: transform 40ms ease-out, opacity 40ms ease-in;
+}
+
+.leaflet-cluster-spider-leg {
+  transition: stroke-dashoffset 40ms ease-out, stroke-opacity 40ms ease-in;
 }
 
 /* -------------------------------------------------------------- viewer --- */
@@ -291,7 +306,9 @@ body.viewer-open {
   .viewer,
   .viewer-frame img,
   .photo-thumb img,
-  .stack img {
+  .stack img,
+  .leaflet-cluster-anim .leaflet-marker-icon,
+  .leaflet-cluster-spider-leg {
     animation: none;
     transition: none;
   }
