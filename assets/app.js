@@ -78,6 +78,13 @@
   var THUMB_PX = 44;
   var STACK_PX = 58;
 
+  // A photo sits at one longitude, but the map tiles repeat horizontally, so
+  // the same marker is placed in a few world copies (360 deg each) to keep
+  // every visible copy of the map populated. Fixed and finite: at the lowest
+  // zoom (2) the world is 1024px wide, and two copies per side covers any
+  // realistic viewport (up to ~4K).
+  var WORLD_COPIES = 2;
+
   function thumbUrl(photo) {
     return photo.thumb || photo.file;
   }
@@ -168,21 +175,31 @@
   function drawPhotos() {
     if (!state.photos.length) return;
 
-    var markers = state.photos.map(function (photo, index) {
-      var marker = L.marker([photo.lat, photo.lon], {
-        icon: thumbIcon(photo),
-        keyboard: true
+    var wraps = [];
+    for (var copy = -WORLD_COPIES; copy <= WORLD_COPIES; copy += 1) {
+      wraps.push(copy * 360);
+    }
+
+    var markers = [];
+    state.photos.forEach(function (photo, index) {
+      wraps.forEach(function (wrap) {
+        var marker = L.marker([photo.lat, photo.lon + wrap], {
+          icon: thumbIcon(photo),
+          // Only the canonical copy joins the tab order; the wrapped copies
+          // are click-only duplicates.
+          keyboard: wrap === 0
+        });
+        marker.photo = photo;
+        marker.on('add', function () {
+          // No tooltip: only a screen-reader name.
+          var node = marker.getElement();
+          if (node) node.setAttribute('aria-label', describe(photo));
+        });
+        marker.on('click', function () {
+          open(index);
+        });
+        markers.push(marker);
       });
-      marker.photo = photo;
-      marker.on('add', function () {
-        // No tooltip: only a screen-reader name.
-        var node = marker.getElement();
-        if (node) node.setAttribute('aria-label', describe(photo));
-      });
-      marker.on('click', function () {
-        open(index);
-      });
-      return marker;
     });
 
     state.markerGroup.addLayers(markers);
