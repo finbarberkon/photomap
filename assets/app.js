@@ -6,11 +6,12 @@
 (function () {
   'use strict';
 
-  // OpenStreetMap's public tiles need no key. They are desaturated in
-  // styles.css (.map-tiles) so the thumbnails stay the focal point.
-  var TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  // Esri's World Topographic Map: coloured terrain with blue water and
+  // labels, no API key. Served through zoom 19, so no upscaling needed.
+  var TILES =
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
   var ATTRIBUTION =
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+    '&copy; Esri, HERE, Garmin, USGS, &copy; OpenStreetMap contributors';
 
   // The map opens fully zoomed out, centred on this longitude (Sydney).
   var START_LNG = 151.2093;
@@ -267,7 +268,9 @@
     var map = L.map(el.map, {
       zoomControl: false,
       minZoom: 2,
-      maxZoom: 19,
+      // Cap at city level: zoom 12 shows a whole city and its main streets
+      // without dropping to street-level detail, which starts around 13.
+      maxZoom: 12,
       // No snapping: the window-fitted fractional min zoom set by
       // fitMinZoomToWindow() must be reachable, and snapping would round it
       // back up to 2.
@@ -287,8 +290,7 @@
 
     L.tileLayer(TILES, {
       attribution: ATTRIBUTION,
-      className: 'map-tiles',
-      maxZoom: 19,
+      maxZoom: 12,
       maxNativeZoom: 19
     }).addTo(map);
 

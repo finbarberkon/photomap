@@ -2,7 +2,7 @@
   --accent: #d94f2b;
   --accent-dark: #b93c1c;
   --ink: #1c2024;
-  --map-bg: #eef1f4;
+  --map-bg: #a9c9e2;
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
@@ -38,11 +38,6 @@ body.viewer-open {
 
 .leaflet-container {
   font-family: var(--font);
-}
-
-/* Mute the basemap so the thumbnails stay the focal point. */
-.map-tiles {
-  filter: grayscale(1) brightness(1.05) contrast(0.92);
 }
 
 .leaflet-control-attribution {

@@ -103,6 +103,6 @@ tools/prep.py         the only script: EXIF -> web copies, thumbs + photos.json
 vendor/               Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 ```
 
-Map tiles are OpenStreetMap's public tiles (no API key), desaturated with CSS
-so the thumbnails stand out. Each photo also has a linkable address:
-`/#img-1620` opens that photo directly.
+Map tiles are Esri's World Topographic Map (no API key): coloured terrain with
+blue water and labels. Each photo also has a linkable address: `/#img-1620`
+opens that photo directly.
