@@ -247,6 +247,11 @@
       if (frame) cancelAnimationFrame(frame);
       frame = null;
       target = map.getZoom();
+      // worldCopyJump caches the world width on zoomend, but this smooth zoom
+      // changes zoom via _move and only fires zoomend at rounded levels. The
+      // cache can therefore be stale when a drag wraps, shifting the map by a
+      // fraction of a world. Refresh it at the real current zoom.
+      if (map.dragging) map.dragging._onZoomEnd();
     });
   }
 
