@@ -65,9 +65,12 @@ vendor/               vendored Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 - **`photos.json` formatting is deliberate**: one entry per line, keys sorted
   (`sort_keys=True`), two-space indent, entries sorted by `(date, id)`. Let
   `dump_manifest()` produce it; don't reformat by hand.
-- **No captions or place names, by design.** A photo is just its image, so
-  there is nothing to keep in sync as the library grows. Don't add metadata
-  fields to the UI unless the design is intentionally changing.
+- **Only the capture date is shown, no captions or place names.** The viewer
+  puts the date under the photo; the map thumbnails stay bare. Don't add other
+  metadata fields to the UI unless the design is intentionally changing.
+- **Clicking a stack opens its photos as an album in the viewer**, it does not
+  zoom the map. `zoomToBoundsOnClick`/`spiderfyOnMaxZoom` are off and
+  `onClusterClick` in `assets/app.js` handles `clusterclick`/`clusterkeypress`.
 - Adding a field to a manifest entry means updating `tools/prep.py`, the
   `app.js` header comment, and any consumption in `app.js`.
 

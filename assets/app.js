@@ -27,7 +27,11 @@
     map: null,
     markerGroup: null,
     lastFocus: null,
-    loadToken: 0
+    loadToken: 0,
+    // Photos currently navigable in the viewer. A lone marker is a one-item
+    // album (no arrows); a cluster opens its own photos.
+    album: [],
+    albumIndex: 0
   };
 
   var el = {};
@@ -43,6 +47,10 @@
     el.image = $('viewer-img');
     el.spinner = $('viewer-spinner');
     el.close = $('viewer-close');
+    el.prev = $('viewer-prev');
+    el.next = $('viewer-next');
+    el.date = $('viewer-date');
+    el.count = $('viewer-count');
   }
 
   /* ----------------------------------------------------------- helpers --- */
@@ -300,7 +308,11 @@
 
     state.markerGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
+      // Clicking a stack opens its album instead of zooming/spiderfying.
+      // Turning both defaults off stops markercluster registering its own
+      // click handler; ours is bound just below.
+      spiderfyOnMaxZoom: false,
+      zoomToBoundsOnClick: false,
       // Prune clusters that leave the view, otherwise stacks from earlier zoom
       // levels linger as ghosts. Add every marker up front (no chunked
       // loading) so pruning never misses the ones that should be visible.
@@ -316,6 +328,8 @@
       spiderfyDistanceMultiplier: 1.6,
       iconCreateFunction: clusterIcon
     }).addTo(map);
+
+    state.markerGroup.on('clusterclick clusterkeypress', onClusterClick);
 
     // markercluster fades a joining cluster into the incoming stack by moving
     // and hiding its outgoing children. Its own version only reaches direct
@@ -345,6 +359,36 @@
     };
   }
 
+  // The photos in a clicked cluster, oldest first. Markers carry their index
+  // into state.photos (already sorted by date), and world-copy duplicates are
+  // collapsed by id.
+  function clusterAlbum(cluster) {
+    var seen = {};
+    var markers = [];
+    cluster.getAllChildMarkers().forEach(function (marker) {
+      var photo = marker.photo;
+      if (!photo || seen[photo.id]) return;
+      seen[photo.id] = true;
+      markers.push(marker);
+    });
+    markers.sort(function (a, b) {
+      return a.photoIndex - b.photoIndex;
+    });
+    return markers.map(function (marker) {
+      return marker.photo;
+    });
+  }
+
+  function onClusterClick(event) {
+    // markercluster fires this for any keypress; only Enter activates a stack.
+    if (event.type === 'clusterkeypress') {
+      var key = event.originalEvent;
+      if (key && key.key !== 'Enter' && key.keyCode !== 13) return;
+    }
+    var album = clusterAlbum(event.layer);
+    if (album.length) open(album, 0);
+  }
+
   function drawPhotos() {
     if (!state.photos.length) return;
 
@@ -363,13 +407,14 @@
           keyboard: wrap === 0
         });
         marker.photo = photo;
+        marker.photoIndex = index;
         marker.on('add', function () {
           // No tooltip: only a screen-reader name.
           var node = marker.getElement();
           if (node) node.setAttribute('aria-label', describe(photo));
         });
         marker.on('click', function () {
-          open(index);
+          open([photo], 0);
         });
         markers.push(marker);
       });
@@ -380,12 +425,16 @@
 
   /* ------------------------------------------------------------ viewer --- */
 
-  function open(index) {
-    if (!state.photos.length) return;
+  function open(album, index) {
+    if (!album || !album.length) return;
+    if (index < 0 || index >= album.length) return;
 
-    var photo = state.photos[(index + state.photos.length) % state.photos.length];
+    var photo = album[index];
+    state.album = album;
+    state.albumIndex = index;
 
-    if (el.viewer.hidden) {
+    var wasOpen = !el.viewer.hidden;
+    if (!wasOpen) {
       state.lastFocus = document.activeElement;
       el.viewer.hidden = false;
       document.body.classList.add('viewer-open');
@@ -415,9 +464,46 @@
     };
     el.image.src = photo.file;
 
+    el.date.textContent = formatDate(photo.date);
+    if (album.length > 1) {
+      el.count.textContent = index + 1 + ' / ' + album.length;
+      el.count.hidden = false;
+    } else {
+      el.count.textContent = '';
+      el.count.hidden = true;
+    }
+
     el.viewer.setAttribute('aria-label', describe(photo));
+    updateNav();
     replaceHash(photo.id);
-    el.close.focus({ preventScroll: true });
+
+    if (!wasOpen) el.close.focus({ preventScroll: true });
+  }
+
+  // Move within the open album only; never wrap past its ends.
+  function show(delta) {
+    open(state.album, state.albumIndex + delta);
+  }
+
+  function updateNav() {
+    var last = state.album.length - 1;
+    el.prev.hidden = state.albumIndex <= 0;
+    el.next.hidden = state.albumIndex >= last;
+
+    // Do not leave focus on a control that just disappeared.
+    if (document.activeElement === el.prev && el.prev.hidden) {
+      focusNav(el.next);
+    } else if (document.activeElement === el.next && el.next.hidden) {
+      focusNav(el.prev);
+    }
+  }
+
+  function focusNav(preferred) {
+    if (preferred && !preferred.hidden) {
+      preferred.focus({ preventScroll: true });
+    } else {
+      el.close.focus({ preventScroll: true });
+    }
   }
 
   function close() {
@@ -425,6 +511,8 @@
 
     el.viewer.hidden = true;
     state.loadToken += 1;
+    state.album = [];
+    state.albumIndex = 0;
     el.image.onload = null;
     el.image.onerror = null;
     el.image.removeAttribute('src');
@@ -448,7 +536,7 @@
     if (!id) return false;
     for (var i = 0; i < state.photos.length; i += 1) {
       if (state.photos[i].id === id) {
-        open(i);
+        open([state.photos[i]], 0);
         return true;
       }
     }
@@ -467,8 +555,27 @@
       close();
     });
 
+    el.prev.addEventListener('click', function (event) {
+      event.stopPropagation();
+      show(-1);
+    });
+
+    el.next.addEventListener('click', function (event) {
+      event.stopPropagation();
+      show(1);
+    });
+
     document.addEventListener('keydown', function (event) {
-      if (!el.viewer.hidden && event.key === 'Escape') close();
+      if (el.viewer.hidden) return;
+      if (event.key === 'Escape') {
+        close();
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        show(-1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        show(1);
+      }
     });
 
     window.addEventListener('hashchange', function () {

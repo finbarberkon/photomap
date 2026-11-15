@@ -1,9 +1,11 @@
 # where
 
 A small map of the places I've photographed. Each photo is a small square
-thumbnail on the map, and photos taken close together stack up; click one and
-the photo opens full screen, Quick Look style. Click again (or press Esc) and
-you're back on the map.
+thumbnail on the map, and photos taken close together stack up. Click a
+thumbnail and the photo opens full screen, Quick Look style; click a stack and
+the same viewer opens as an album, showing the capture date and arrows to step
+through just the photos in that stack. Click again (or press Esc) and you're
+back on the map.
 
 No framework, no build step, no API keys. Leaflet and its clustering plugin are
 vendored in `vendor/`, and the site is a few static files that GitHub Pages can
@@ -61,8 +63,8 @@ Useful flags:
 Size and quality live at the top of `tools/prep.py` (`MAX_EDGE`,
 `JPEG_QUALITY`, `THUMB_SIZE`).
 
-Photos have no captions or place names: the map shows the picture alone, so
-there is nothing to keep in sync as the library grows.
+Photos have no captions or place names: the viewer shows the picture and the
+date it was taken, and nothing else to keep in sync as the library grows.
 
 Moving or renaming a source file makes it look like a new photo on the next run
 (it gets a new entry and web copy). Run `--prune` afterwards to remove the old
@@ -91,8 +93,8 @@ The site is entirely static, so any static host works. For GitHub Pages:
 
 ```
 index.html            page shell and photo overlay
-assets/app.js         load photos.json, draw thumbnails and stacks, open photos
-assets/styles.css     thumbnails, stacks, overlay
+assets/app.js         load photos.json, draw thumbnails and stacks, open photos/albums
+assets/styles.css     thumbnails, stacks, viewer and album
 photos.json           generated index: id, file, thumb, lat, lon, date
 photos/web/*.jpg      generated 1600px web copies (committed)
 photos/web/thumbs/    generated 144px square markers (committed)
