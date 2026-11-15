@@ -109,7 +109,7 @@ body.viewer-open {
   border-radius: 8px;
   background: #dfe3e7;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: transform 140ms ease;
+  transition: scale 140ms ease;
 }
 
 .stack-2 img:nth-child(1) {
@@ -139,10 +139,10 @@ body.viewer-open {
   z-index: 3;
 }
 
-/* TODO: hovering a stack only reacts on the top card; make the whole stack
-   respond instead (e.g. lift every card together). */
-.stack:hover img:nth-child(3) {
-  transform: translateY(-2px);
+/* Grow every card in the stack, like a single thumbnail. The `scale`
+   property composes with each card's own translate/rotate fan transform. */
+.stack:hover img {
+  scale: 1.08;
 }
 
 /* Markercluster animates joins/splits over 0.3s, which visibly lags our
