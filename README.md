@@ -1,4 +1,4 @@
-# where
+# Where has Finbar Been?
 
 A small map of the places I've photographed. Each photo is a small square
 thumbnail on the map, and photos taken close together stack up. Click a
