@@ -38,6 +38,13 @@ tools/prep.py         the only script: EXIF -> web copies, thumbs, photos.json
 vendor/               vendored Leaflet 1.9.4 + Leaflet.markercluster 1.5.3
 ```
 
+## Hosting
+
+The site is served by GitHub Pages at https://finbar.dev/photomap/. The
+`finbar.dev` custom domain is configured on the user Pages site, so there is no
+`CNAME` file here. `.nojekyll` must stay in the repo root: it stops GitHub from
+running the static files through Jekyll.
+
 ## Hard rules
 
 - **Do not hand-edit `photos.json` or anything under `photos/web/`.** They are
