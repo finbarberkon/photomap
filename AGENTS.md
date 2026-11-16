@@ -1,8 +1,9 @@
 # AGENTS.md
 
-A static, build-free website that shows a map of the places Finbar has
-photographed. `README.md` is the user-facing guide; this file covers what an
-agent needs to work on the repo without breaking things.
+Finbar's Photo Map is a static, build-free website that shows a map of the
+places Finbar has photographed. It is live at https://finbar.dev/photomap/.
+`README.md` is the user-facing guide; this file covers what an agent needs to
+work on the repo without breaking things.
 
 ## Commands
 

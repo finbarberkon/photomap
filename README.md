@@ -1,15 +1,8 @@
-# Where has Finbar Been?
+# Finbar's Photo Map
 
-A small map of the places I've photographed. Each photo is a small square
-thumbnail on the map, and photos taken close together stack up. Click a
-thumbnail and the photo opens full screen, Quick Look style; click a stack and
-the same viewer opens as an album, showing the capture date and arrows to step
-through just the photos in that stack. Click again (or press Esc) and you're
-back on the map.
+An interactive map of photographs I've taken. Pan around, and click on photos to see them.
 
-No framework, no build step, no API keys. Leaflet and its clustering plugin are
-vendored in `vendor/`, and the site is a few static files that GitHub Pages can
-serve directly.
+https://finbar.dev/photomap
 
 ## Preview locally
 
@@ -76,18 +69,6 @@ Only `photos/web/` and `photos.json` are committed. `photos/source/` is
 ignored, so the repo stays around 200–400 KB per photo (plus a 2–6 KB marker
 thumbnail) instead of several megabytes, and your original files stay where they
 are. Keep your own backup of the originals — they are not in the repo.
-
-## Publishing on GitHub Pages
-
-The site is entirely static, so any static host works. For GitHub Pages:
-
-1. Create a public repository named `fmb-where` (or anything else).
-2. Push this repo to it.
-3. In the repository: **Settings → Pages → Build and deployment**, set
-   **Source** to **Deploy from a branch**, branch **main**, folder **/ (root)**.
-4. Wait a minute, then open `https://<username>.github.io/<repo>/`.
-
-`.nojekyll` is included so GitHub serves the files as-is.
 
 ## How it fits together
 
