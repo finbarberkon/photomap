@@ -10,8 +10,7 @@
   // labels, no API key. Served through zoom 19, so no upscaling needed.
   var TILES =
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
-  var ATTRIBUTION =
-    '&copy; Esri, HERE, Garmin, USGS, &copy; OpenStreetMap contributors';
+  var ATTRIBUTION = '&copy; Esri, OSM';
 
   // The map opens fully zoomed out, centred on this longitude (Sydney).
   var START_LNG = 151.2093;
@@ -512,6 +511,9 @@
       maxBoundsViscosity: 1,
       attributionControl: true
     }).setView([0, START_LNG], 2);
+
+    // Drop Leaflet's flag/link prefix; the source credit is all we show.
+    map.attributionControl.setPrefix(false);
 
     L.tileLayer(TILES, {
       attribution: ATTRIBUTION,

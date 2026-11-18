@@ -2,7 +2,7 @@
   --accent: #d94f2b;
   --accent-dark: #b93c1c;
   --ink: #1c2024;
-  --map-bg: #a9c9e2;
+  --map-bg: #c1e5fb;
   --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
@@ -16,11 +16,20 @@ body {
   height: 100%;
 }
 
+html {
+  background: var(--map-bg);
+  /* Ocean blue, with a white strip at the bottom for Antarctica. */
+  background: linear-gradient(
+    to bottom,
+    var(--map-bg) calc(100% - max(10px, env(safe-area-inset-bottom))),
+    #fff calc(100% - max(10px, env(safe-area-inset-bottom)))
+  );
+}
+
 body {
   margin: 0;
   font-family: var(--font);
   color: var(--ink);
-  background: var(--map-bg);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -40,10 +49,36 @@ body.viewer-open {
   font-family: var(--font);
 }
 
-.leaflet-control-attribution {
+/* Keep Leaflet's controls clear of the device safe areas. The map itself
+   stays full-bleed and must not take safe-area padding. */
+.leaflet-top {
+  top: env(safe-area-inset-top);
+}
+
+.leaflet-bottom {
+  bottom: env(safe-area-inset-bottom);
+}
+
+.leaflet-left {
+  left: env(safe-area-inset-left);
+}
+
+.leaflet-right {
+  right: env(safe-area-inset-right);
+}
+
+/* Zoom buttons are for mouse and keyboard; touch uses pinch and
+   double-tap-drag instead. */
+body.touch .leaflet-control-zoom {
+  display: none;
+}
+
+/* Match Leaflet's own selector so this overrides its default white box. The
+   attribution only ever sits over the map / page background, so it needs no
+   backing of its own. */
+.leaflet-container .leaflet-control-attribution {
   font-size: 10px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(4px);
+  background: transparent;
 }
 
 /* Thumbnail markers ------------------------------------------------------ */
