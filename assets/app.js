@@ -533,7 +533,12 @@
     L.tileLayer(TILES, {
       attribution: ATTRIBUTION,
       maxZoom: 12,
-      maxNativeZoom: 19
+      maxNativeZoom: 19,
+      // Leaflet defaults this to L.Browser.mobile, which is true on iOS Safari
+      // (it still defines window.orientation), so tiles would only load on
+      // moveend and the map blanks out mid-pan. Load during the pan instead,
+      // like desktop.
+      updateWhenIdle: false
     }).addTo(map);
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -551,6 +556,20 @@
     map.on('resize', fitMinZoomToWindow);
     // Open fully zoomed out on Sydney instead of fitted to the photos.
     map.setView([0, START_LNG], map.getMinZoom(), { animate: false });
+
+    // markercluster pads the visible bounds by a full screen before pruning,
+    // but only for non-mobile: with L.Browser.mobile it prunes against the raw
+    // viewport bounds. iOS Safari defines window.orientation, so Leaflet
+    // reports mobile there and pruning lands exactly on the viewport edge:
+    // panning tears down and rebuilds on-screen clusters, and a left/right
+    // jiggle across that edge unloads and reloads everything beyond it. Use
+    // the desktop padding on every platform. Like the animation patch below,
+    // this reaches into a markercluster internal and is pinned to the vendored
+    // version.
+    L.MarkerClusterGroup.prototype._getExpandedVisibleBounds = function () {
+      if (!this.options.removeOutsideVisibleBounds) return this._mapBoundsInfinite;
+      return this._checkBoundsMaxLat(this._map.getBounds().pad(1));
+    };
 
     state.markerGroup = L.markerClusterGroup({
       showCoverageOnHover: false,

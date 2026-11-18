@@ -96,12 +96,25 @@ the same way.
 
 That patch monkeypatches a plugin internal, so it is pinned to the vendored
 markercluster version and must be re-checked if `vendor/` is ever updated. A
-cleaner long-term direction is to replace markercluster's model/render pass
+second pinned patch, `L.MarkerClusterGroup.prototype._getExpandedVisibleBounds`,
+forces pruning to pad the visible bounds by a full screen on every platform.
+The plugin skips that padding when `L.Browser.mobile` is set, which is true on
+iOS Safari (it still defines `window.orientation`), so there pruning landed
+exactly on the viewport edge: panning tore down and rebuilt on-screen clusters,
+and a left/right jiggle across the edge unloaded and reloaded everything beyond
+it. A cleaner long-term direction is to replace markercluster's model/render pass
 with our own uniform node tree, where a photo and an n-cluster are genuinely
 the same object and the animation recurses over one `children()` accessor. That
 deletes the patch and the last node-type special cases, and is the natural fit
 for the planned n-cluster (shown as a 3-card stack with a count). The cost is owning clustering, visibility, pruning
 and the animation details markercluster currently handles. Not scheduled.
+
+## Basemap tiles (front end)
+
+The Esri tile layer in `assets/app.js` sets `updateWhenIdle: false`. Leaflet
+defaults that option to `L.Browser.mobile`, which is true on iOS Safari, so
+tiles would only refresh on `moveend` and the map would blank out during a pan
+instead of loading continuously as it does on desktop.
 
 ## Touch gestures (front end)
 
