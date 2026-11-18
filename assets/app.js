@@ -418,17 +418,25 @@
 
   // Leaflet ends the one-finger drag the moment a second finger lands
   // (Draggable._onDown calls finishDrag for a multi-touch touchstart), and
-  // TouchZoom._onTouchEnd finishes the pinch without restarting a drag for the
-  // finger still down, so after a pinch the remaining finger cannot pan.
-  // Re-arm Leaflet's dragging on that finger once the pinch is done. This
-  // reaches into a Leaflet internal, so it is pinned to the vendored 1.9.4 and
-  // must be re-checked if Leaflet is updated.
+  // TouchZoom._onTouchEnd responds by starting a ~250ms zoom animation to the
+  // pinched view instead of restarting a drag for the finger still down.
+  // Draggable ignores every touch while that animation runs, so the remaining
+  // finger cannot pan and a fresh touch right after is dead as well. The map
+  // is already at that view (the pinch moved it frame by frame), so finish the
+  // animation as soon as the user is still touching, then re-arm the drag.
+  // This reaches into Leaflet internals, so it is pinned to the vendored 1.9.4
+  // and must be re-checked if Leaflet is updated.
   function enableTouchPanHandoff(map) {
     if (!isTouch) return;
 
     var touches = 0;
     var pinching = false;
     var lastTouch = null;
+
+    // End the pinch-release animation now instead of waiting it out.
+    function settle() {
+      if (map._animatingZoom) map._onZoomTransitionEnd();
+    }
 
     function track(event) {
       touches = event.touches.length;
@@ -437,6 +445,16 @@
     }
 
     var container = map.getContainer();
+    // A fresh touch during the release animation must be able to pan at once.
+    // Run on the document in the capture phase so the animation is gone before
+    // Leaflet's own (container) touchstart handler decides to ignore the drag.
+    document.addEventListener(
+      'touchstart',
+      function (event) {
+        if (container.contains(event.target)) settle();
+      },
+      { passive: true, capture: true }
+    );
     container.addEventListener('touchstart', track, { passive: true });
     container.addEventListener('touchmove', track, { passive: true });
     container.addEventListener(
@@ -445,8 +463,8 @@
         track(event);
         if (event.touches.length === 0) pinching = false;
         if (event.touches.length !== 1 || !pinching) return;
-        // Let Leaflet's own touchend handler run first: if it started a zoom
-        // animation, resume after that (on zoomend) instead.
+        // Let Leaflet's own touchend handler start the release animation
+        // before resume() ends it and re-arms the drag.
         setTimeout(resume, 0);
       },
       { passive: true }
@@ -462,9 +480,9 @@
 
     function resume() {
       if (touches !== 1 || !pinching || !lastTouch) return;
+      settle();
       var draggable = map.dragging && map.dragging._draggable;
       if (!draggable || draggable._moving) return;
-      if (L.DomUtil.hasClass(map._mapPane, 'leaflet-zoom-anim')) return;
       var touch = lastTouch;
       lastTouch = null;
       pinching = false;
@@ -478,9 +496,6 @@
         button: 1
       });
     }
-
-    // A zoom animation removes leaflet-zoom-anim just before firing zoomend.
-    map.on('zoomend', resume);
   }
 
   function initMap() {

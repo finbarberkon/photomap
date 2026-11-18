@@ -125,12 +125,16 @@ easing loop as the wheel via the controller returned from `enableSmoothZoom`.
 
 Pinch-then-pan needs a Leaflet workaround. Leaflet's `Draggable` tears down the
 one-finger drag the instant a second finger lands, and `TouchZoom._onTouchEnd`
-finishes the pinch without restarting a drag for the remaining finger, so the
-last finger is left unable to pan. `enableTouchPanHandoff()` in `assets/app.js`
-tracks the touches and re-arms `dragging` on the surviving finger once the zoom
-animation ends. That reaches into Leaflet internals
-(`map.dragging._draggable._onDown`), so it is pinned to the vendored Leaflet
-1.9.4 and must be re-checked if `vendor/` is updated.
+finishes the pinch by starting a ~250ms zoom animation to the pinched view.
+`Draggable` ignores every touch while `leaflet-zoom-anim` is on the map pane,
+so the surviving finger cannot pan (and a fresh touch right after is dead too)
+until it ends. `enableTouchPanHandoff()` in `assets/app.js` tracks the touches,
+ends that animation immediately (`map._onZoomTransitionEnd()`) whenever the user
+is still touching the map, and re-arms `dragging` on the surviving finger. It
+only interrupts the animation; with every finger lifted it still settles
+normally. That reaches into Leaflet internals
+(`map.dragging._draggable._onDown`, `map._onZoomTransitionEnd`), so it is pinned
+to the vendored Leaflet 1.9.4 and must be re-checked if `vendor/` is updated.
 
 ## `make prep` behaviour worth knowing
 
