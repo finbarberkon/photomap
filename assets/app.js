@@ -548,7 +548,10 @@
   /* -------------------------------------------------------------- wiring -- */
 
   function bindEvents() {
-    el.viewer.addEventListener('click', function () {
+    el.viewer.addEventListener('click', function (event) {
+      // Clicking the photo itself does nothing; the backdrop (and caption)
+      // close the viewer. The buttons stop propagation before this runs.
+      if (event.target === el.image) return;
       close();
     });
 

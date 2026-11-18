@@ -155,7 +155,9 @@ body.viewer-open {
 
 /* -------------------------------------------------------------- viewer --- */
 
-/* A solid dark stage, the photo, and a close button. Nothing else. */
+/* A translucent white stage, the photo, and a close button. Nothing else.
+   The photo keeps a 10% gutter on every side; the caption and the desktop
+   arrows live inside that gutter rather than pushing the photo. */
 
 .viewer {
   position: fixed;
@@ -164,8 +166,7 @@ body.viewer-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(255, 255, 255, 0.8);
   animation: viewer-in 140ms ease-out;
 }
 
@@ -183,10 +184,10 @@ body.viewer-open {
 }
 
 .viewer-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
   max-width: 100%;
   max-height: 100%;
   margin: 0;
@@ -203,24 +204,34 @@ body.viewer-open {
   display: block;
   width: auto;
   height: auto;
-  max-width: calc(100vw - 32px);
-  /* Leave room for the caption line below the photo. */
-  max-height: calc(100vh - 64px);
+  /* 10% margins on all sides. The photo is centred on its own, so top and
+     bottom margins match; the caption sits in the bottom gutter. */
+  max-width: 80vw;
+  max-height: 80vh;
+  /* The photo itself is always fully opaque; only the stage is translucent. */
   opacity: 0;
   transition: opacity 160ms ease;
 }
 
 .viewer-caption {
+  /* Out of flow, just below the photo and inside the bottom 10% gutter, so
+     it never shifts the photo off centre. */
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.6em;
   display: flex;
   align-items: baseline;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(28, 32, 36, 0.82);
   font-size: 14px;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
 .viewer-count {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(28, 32, 36, 0.55);
   font-variant-numeric: tabular-nums;
 }
 
@@ -237,8 +248,8 @@ body.viewer-open {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.22);
-  border-top-color: rgba(255, 255, 255, 0.9);
+  border: 2.5px solid rgba(28, 32, 36, 0.22);
+  border-top-color: rgba(28, 32, 36, 0.9);
   animation: spin 700ms linear infinite;
 }
 
@@ -263,21 +274,35 @@ body.viewer-open {
   height: 38px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 24px;
+  background: rgba(28, 32, 36, 0.1);
+  color: rgba(28, 32, 36, 0.9);
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease;
 }
 
+/* Icons are SVG, not glyphs: the viewBox is symmetric so flex centring puts
+   them dead-centre, with no dependence on font metrics. */
+.viewer-close svg,
+.viewer-nav svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .viewer-close:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: rgba(28, 32, 36, 0.18);
+  color: var(--ink);
 }
 
 .viewer-close:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline: 2px solid rgba(28, 32, 36, 0.6);
   outline-offset: 2px;
 }
 
@@ -293,9 +318,9 @@ body.viewer-open {
   height: 44px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 28px;
+  background: rgba(28, 32, 36, 0.1);
+  color: rgba(28, 32, 36, 0.9);
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease;
@@ -306,12 +331,12 @@ body.viewer-open {
 }
 
 .viewer-nav:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: rgba(28, 32, 36, 0.18);
+  color: var(--ink);
 }
 
 .viewer-nav:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline: 2px solid rgba(28, 32, 36, 0.6);
   outline-offset: 2px;
 }
 
@@ -350,27 +375,18 @@ body.viewer-open {
 /* ------------------------------------------------------------- mobile --- */
 
 @media (max-width: 560px) {
-  .viewer {
-    padding: 8px;
-  }
-
-  .viewer-frame img {
-    max-width: calc(100vw - 16px);
-    max-height: calc(100vh - 48px);
-  }
-
   .viewer-close {
     top: max(8px, env(safe-area-inset-top));
     right: 8px;
     width: 34px;
     height: 34px;
-    font-size: 22px;
+    font-size: 18px;
   }
 
   .viewer-nav {
     width: 38px;
     height: 38px;
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .viewer-prev {

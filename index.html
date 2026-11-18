@@ -16,9 +16,21 @@
   <p id="status" class="status" role="status" hidden></p>
 
   <div id="viewer" class="viewer" role="dialog" aria-modal="true" aria-label="Photo" hidden>
-    <button class="viewer-close" id="viewer-close" type="button" aria-label="Close photo">&times;</button>
-    <button class="viewer-nav viewer-prev" id="viewer-prev" type="button" aria-label="Previous photo" hidden>&lsaquo;</button>
-    <button class="viewer-nav viewer-next" id="viewer-next" type="button" aria-label="Next photo" hidden>&rsaquo;</button>
+    <button class="viewer-close" id="viewer-close" type="button" aria-label="Close photo">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M6 6l12 12M18 6L6 18"></path>
+      </svg>
+    </button>
+    <button class="viewer-nav viewer-prev" id="viewer-prev" type="button" aria-label="Previous photo" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M16 5l-8 7 8 7"></path>
+      </svg>
+    </button>
+    <button class="viewer-nav viewer-next" id="viewer-next" type="button" aria-label="Next photo" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M8 5l8 7-8 7"></path>
+      </svg>
+    </button>
     <figure class="viewer-body">
       <div class="viewer-frame">
         <img id="viewer-img" alt="">
