@@ -191,8 +191,9 @@ body.touch .leaflet-control-zoom {
 /* -------------------------------------------------------------- viewer --- */
 
 /* A translucent white stage, the photo, and a close button. Nothing else.
-   The photo keeps a 10% gutter on every side; the caption and the desktop
-   arrows live inside that gutter rather than pushing the photo. */
+   The photo keeps a 10% gutter on every side; the count sits at the page's
+   top edge, the date at the bottom, and the desktop arrows live in the side
+   gutters, rather than pushing the photo. */
 
 .viewer {
   position: fixed;
@@ -240,7 +241,7 @@ body.touch .leaflet-control-zoom {
   width: auto;
   height: auto;
   /* 10% margins on all sides. The photo is centred on its own, so top and
-     bottom margins match; the caption sits in the bottom gutter. */
+     bottom margins match. */
   max-width: 80vw;
   max-height: 80vh;
   /* The photo itself is always fully opaque; only the stage is translucent. */
@@ -248,27 +249,28 @@ body.touch .leaflet-control-zoom {
   transition: opacity 160ms ease;
 }
 
-.viewer-caption {
-  /* Out of flow, just below the photo and inside the bottom 10% gutter, so
-     it never shifts the photo off centre. */
+/* Count and date are out-of-flow overlays pinned to the page's top and bottom
+   edges, so they never shift the photo off centre. */
+.viewer-count,
+.viewer-date {
   position: absolute;
-  top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  margin-top: 0.6em;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
   color: rgba(28, 32, 36, 0.62);
   font-size: 14px;
   line-height: 1.3;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .viewer-count {
+  top: max(12px, env(safe-area-inset-top));
   color: rgba(28, 32, 36, 0.55);
   font-variant-numeric: tabular-nums;
+}
+
+.viewer-date {
+  bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .viewer-count[hidden] {
