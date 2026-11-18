@@ -103,6 +103,35 @@ deletes the patch and the last node-type special cases, and is the natural fit
 for the planned n-cluster (shown as a 3-card stack with a count). The cost is owning clustering, visibility, pruning
 and the animation details markercluster currently handles. Not scheduled.
 
+## Touch gestures (front end)
+
+On touch devices the viewer navigates by swipe instead of the album arrows:
+a horizontal release over ~40px moves between photos, a downward release over
+~90px closes the viewer. The arrows stay in the DOM (visually hidden) so
+assistive tech can still reach them. The one-off gesture hint is tracked in
+`sessionStorage` (not a cookie), so it shows on the first multi-photo album of
+a browser session and never gets in the way again.
+
+On the map, double-tap then vertical drag zooms continuously, anchored on the
+tap, in the Google Maps direction (drag down zooms in). Tune
+`DOUBLE_TAP_MS`/`DOUBLE_TAP_DIST`/`ZOOM_DRAG_START`/`ZOOM_DRAG_PX`/
+`ZOOM_DRAG_EASE` (`enableDoubleTapDragZoom`). Leaflet's own double-click zoom
+never fires from touch, so `doubleClickZoom` is off there and this owns the
+gesture, including the plain double-tap zoom-in. A capture-phase `touchstart`
+stops the second tap reaching Leaflet (so it is not read as a pan) and cancels
+its default click/focus (so a clamped gesture cannot press a zoom button);
+taps on `.leaflet-control` are ignored and `tapHold` is off. It drives the same
+easing loop as the wheel via the controller returned from `enableSmoothZoom`.
+
+Pinch-then-pan needs a Leaflet workaround. Leaflet's `Draggable` tears down the
+one-finger drag the instant a second finger lands, and `TouchZoom._onTouchEnd`
+finishes the pinch without restarting a drag for the remaining finger, so the
+last finger is left unable to pan. `enableTouchPanHandoff()` in `assets/app.js`
+tracks the touches and re-arms `dragging` on the surviving finger once the zoom
+animation ends. That reaches into Leaflet internals
+(`map.dragging._draggable._onDown`), so it is pinned to the vendored Leaflet
+1.9.4 and must be re-checked if `vendor/` is updated.
+
 ## `make prep` behaviour worth knowing
 
 - Scans `photos/source/` recursively; reuses previous output names so new

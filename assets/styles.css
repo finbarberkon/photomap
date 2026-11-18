@@ -348,6 +348,60 @@ body.viewer-open {
   right: max(12px, env(safe-area-inset-right));
 }
 
+/* One-off mobile hint: the arrows are hidden on touch, so explain the
+   gestures instead. Fades in on the first multi-photo album of the session
+   and is dismissed by the first interaction (app.js). */
+.viewer-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(28, 32, 36, 0.55);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 8px));
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.viewer-hint.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.viewer-hint-arrow {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+/* On touch devices the album arrows stay in the DOM for assistive tech but
+   are visually hidden; swipe replaces them. touch-action: none lets the
+   viewer claim horizontal/vertical drags instead of the browser. */
+body.touch .viewer {
+  touch-action: none;
+}
+
+body.touch .viewer-nav {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* -------------------------------------------------------------- status --- */
 
 .status {
@@ -402,6 +456,7 @@ body.viewer-open {
   .viewer,
   .viewer-frame img,
   .viewer-nav,
+  .viewer-hint,
   .photo-thumb img,
   .stack img,
   .leaflet-cluster-anim .leaflet-marker-icon,

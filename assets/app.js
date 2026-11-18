@@ -23,6 +23,33 @@
   var PINCH_GAIN = 5;
   var ZOOM_EASE = 0.2;
 
+  // Touch gestures in the viewer. A drag only counts once it clearly follows
+  // one axis: SWIPE_MIN horizontally to change photo, CLOSE_MIN downward to
+  // dismiss, AXIS_RATIO the dominance the axis needs.
+  var SWIPE_MIN = 40;
+  var CLOSE_MIN = 90;
+  var AXIS_RATIO = 1.2;
+
+  // Double-tap then drag (one finger) to zoom the map continuously, the way
+  // map apps do. A second tap within DOUBLE_TAP_MS and DOUBLE_TAP_DIST arms
+  // it; a vertical drag past ZOOM_DRAG_START then drives the zoom by
+  // ZOOM_DRAG_PX pixels per level, anchored on the tap.
+  var DOUBLE_TAP_MS = 300;
+  var DOUBLE_TAP_DIST = 30;
+  var ZOOM_DRAG_START = 6;
+  var ZOOM_DRAG_PX = 110;
+  // Drag eases faster than the wheel so the map tracks the finger closely.
+  var ZOOM_DRAG_EASE = 0.3;
+
+  // The primary pointer is coarse (phone/tablet), not a window width: it
+  // decides swipe navigation, the one-off hint, and hiding the album arrows.
+  // A touch-laptop whose main pointer is a mouse keeps its arrows.
+  var isTouch =
+    window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+  // sessionStorage, never a cookie: the swipe hint is per browser session.
+  var HINT_KEY = 'photomap:swipe-hint';
+
   var state = {
     photos: [],
     map: null,
@@ -32,7 +59,13 @@
     // Photos currently navigable in the viewer. A lone marker is a one-item
     // album (no arrows); a cluster opens its own photos.
     album: [],
-    albumIndex: 0
+    albumIndex: 0,
+    // Live touch gesture in the viewer: start point, running delta, and a
+    // flag that swallows the click a swipe/drag synthesises on release.
+    gesture: { active: false, x: 0, y: 0, dx: 0, dy: 0, suppressClick: false },
+    // One-off swipe hint bookkeeping.
+    hintTimer: null,
+    hintShown: false
   };
 
   var el = {};
@@ -52,6 +85,7 @@
     el.next = $('viewer-next');
     el.date = $('viewer-date');
     el.count = $('viewer-count');
+    el.hint = $('viewer-hint');
   }
 
   /* ----------------------------------------------------------- helpers --- */
@@ -170,6 +204,9 @@
     var target = map.getZoom();
     var anchor = null;
     var frame = null;
+    // Fraction of the remaining zoom covered each frame. The drag gesture
+    // raises this for a tighter feel; every other path resets it.
+    var ease = ZOOM_EASE;
     // Integer zoom level markercluster is currently showing.
     var shownLevel = Math.round(map.getZoom());
 
@@ -196,6 +233,7 @@
 
     function finish() {
       frame = null;
+      ease = ZOOM_EASE;
       var zoom = map.getZoom();
       map.setView(anchor ? centerFor(anchor, zoom) : map.getCenter(), zoom, {
         animate: false
@@ -214,7 +252,7 @@
         finish();
         return;
       }
-      var zoom = map.getZoom() + diff * ZOOM_EASE;
+      var zoom = map.getZoom() + diff * ease;
       // Apply the same centre clamp setView will use at the end, every frame,
       // so approaching the zoom-out limit eases into it instead of snapping.
       var center = map._limitCenter(
@@ -234,13 +272,18 @@
       frame = requestAnimationFrame(step);
     }
 
+    function startFrame() {
+      if (!frame) frame = requestAnimationFrame(step);
+    }
+
     function onWheel(event) {
       L.DomEvent.preventDefault(event);
       map._stop();
       var gain = event.ctrlKey ? PINCH_GAIN : WHEEL_GAIN;
+      ease = ZOOM_EASE;
       target = clampZoom(target + levelsFor(L.DomEvent.getWheelDelta(event)) * gain);
       anchor = map.mouseEventToContainerPoint(event);
-      if (!frame) frame = requestAnimationFrame(step);
+      startFrame();
     }
 
     map.getContainer().addEventListener('wheel', onWheel, { passive: false });
@@ -262,6 +305,183 @@
       // fraction of a world. Refresh it at the real current zoom.
       if (map.dragging) map.dragging._onZoomEnd();
     });
+
+    // Driven by the double-tap-drag gesture, which shares this easing loop.
+    return {
+      zoomTo: function (zoom, point, dragEase) {
+        anchor = point;
+        ease = dragEase || ZOOM_EASE;
+        target = clampZoom(zoom);
+        startFrame();
+      }
+    };
+  }
+
+  // Double-tap then drag (one finger) to zoom continuously, like a map app.
+  // Leaflet's discrete double-click zoom never fires from touch, so this owns
+  // the gesture on touch devices: a second tap within a short window arms it,
+  // a vertical drag drives the smooth zoom anchored on the tap, and a plain
+  // double-tap zooms in one level. Capture-phase listeners run before
+  // Leaflet's panning so the second tap never becomes a drag.
+  function enableDoubleTapDragZoom(map, smoothZoom) {
+    if (!isTouch) return;
+
+    var container = map.getContainer();
+    var lastTap = null;
+    var armed = null;
+    var zooming = false;
+
+    function cancel() {
+      armed = null;
+      zooming = false;
+    }
+
+    function onStart(event) {
+      if (!container.contains(event.target)) return;
+      // Let the Leaflet zoom buttons own their taps; do not arm on them.
+      if (event.target.closest && event.target.closest('.leaflet-control')) {
+        lastTap = null;
+        cancel();
+        return;
+      }
+      if (event.touches.length !== 1) {
+        // A second finger means pinch, not double-tap.
+        lastTap = null;
+        cancel();
+        return;
+      }
+      var touch = event.touches[0];
+      var now = Date.now();
+      if (
+        lastTap &&
+        now - lastTap.time <= DOUBLE_TAP_MS &&
+        Math.abs(touch.clientX - lastTap.x) <= DOUBLE_TAP_DIST &&
+        Math.abs(touch.clientY - lastTap.y) <= DOUBLE_TAP_DIST
+      ) {
+        lastTap = null;
+        armed = {
+          anchor: map.mouseEventToContainerPoint(touch),
+          startY: touch.clientY,
+          startZoom: map.getZoom()
+        };
+        zooming = false;
+        // Claim the second tap: stop it reaching Leaflet (so it is not read as
+        // a pan) and cancel its default click/focus, so a clamped gesture
+        // cannot activate whatever sits under the finger (a zoom button, say).
+        event.stopPropagation();
+        if (event.cancelable) event.preventDefault();
+        return;
+      }
+
+      lastTap = { time: now, x: touch.clientX, y: touch.clientY };
+    }
+
+    function onMove(event) {
+      if (!armed || event.touches.length !== 1) return;
+      if (event.cancelable) event.preventDefault();
+      var touch = event.touches[0];
+      // Google Maps direction: dragging down zooms in, up zooms out.
+      var dy = touch.clientY - armed.startY;
+      if (!zooming) {
+        if (Math.abs(dy) < ZOOM_DRAG_START) return;
+        zooming = true;
+        armed.dragStartY = touch.clientY;
+        armed.dragStartZoom = map.getZoom();
+      }
+      smoothZoom.zoomTo(
+        armed.dragStartZoom + (touch.clientY - armed.dragStartY) / ZOOM_DRAG_PX,
+        armed.anchor,
+        ZOOM_DRAG_EASE
+      );
+    }
+
+    function onEnd(event) {
+      if (!armed) return;
+      var wasZooming = zooming;
+      var anchor = armed.anchor;
+      cancel();
+      if (event.cancelable) event.preventDefault();
+      if (wasZooming) return;
+      // A plain double-tap zooms in one level, like the desktop double-click.
+      smoothZoom.zoomTo(map.getZoom() + 1, anchor);
+    }
+
+    function onCancel() {
+      lastTap = null;
+      cancel();
+    }
+
+    document.addEventListener('touchstart', onStart, { passive: false, capture: true });
+    document.addEventListener('touchmove', onMove, { passive: false, capture: true });
+    document.addEventListener('touchend', onEnd, { passive: false, capture: true });
+    document.addEventListener('touchcancel', onCancel, { passive: false, capture: true });
+  }
+
+  // Leaflet ends the one-finger drag the moment a second finger lands
+  // (Draggable._onDown calls finishDrag for a multi-touch touchstart), and
+  // TouchZoom._onTouchEnd finishes the pinch without restarting a drag for the
+  // finger still down, so after a pinch the remaining finger cannot pan.
+  // Re-arm Leaflet's dragging on that finger once the pinch is done. This
+  // reaches into a Leaflet internal, so it is pinned to the vendored 1.9.4 and
+  // must be re-checked if Leaflet is updated.
+  function enableTouchPanHandoff(map) {
+    if (!isTouch) return;
+
+    var touches = 0;
+    var pinching = false;
+    var lastTouch = null;
+
+    function track(event) {
+      touches = event.touches.length;
+      if (touches > 1) pinching = true;
+      lastTouch = event.touches[0] || lastTouch;
+    }
+
+    var container = map.getContainer();
+    container.addEventListener('touchstart', track, { passive: true });
+    container.addEventListener('touchmove', track, { passive: true });
+    container.addEventListener(
+      'touchend',
+      function (event) {
+        track(event);
+        if (event.touches.length === 0) pinching = false;
+        if (event.touches.length !== 1 || !pinching) return;
+        // Let Leaflet's own touchend handler run first: if it started a zoom
+        // animation, resume after that (on zoomend) instead.
+        setTimeout(resume, 0);
+      },
+      { passive: true }
+    );
+    container.addEventListener(
+      'touchcancel',
+      function (event) {
+        track(event);
+        if (event.touches.length === 0) pinching = false;
+      },
+      { passive: true }
+    );
+
+    function resume() {
+      if (touches !== 1 || !pinching || !lastTouch) return;
+      var draggable = map.dragging && map.dragging._draggable;
+      if (!draggable || draggable._moving) return;
+      if (L.DomUtil.hasClass(map._mapPane, 'leaflet-zoom-anim')) return;
+      var touch = lastTouch;
+      lastTouch = null;
+      pinching = false;
+      draggable._onDown({
+        touches: [touch],
+        type: 'touchstart',
+        target: touch.target,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        which: 1,
+        button: 1
+      });
+    }
+
+    // A zoom animation removes leaflet-zoom-anim just before firing zoomend.
+    map.on('zoomend', resume);
   }
 
   function initMap() {
@@ -277,6 +497,11 @@
       zoomSnap: 0,
       // Wheel/pinch zoom is handled by enableSmoothZoom() below.
       scrollWheelZoom: false,
+      // Double-tap zoom is ours on touch (enableDoubleTapDragZoom); keep
+      // Leaflet's double-click handler for mouse/desktop.
+      doubleClickZoom: !isTouch,
+      // Long-press context menu is unused and would fight double-tap-drag.
+      tapHold: false,
       // Panning past the antimeridian re-centres by a full world instead of
       // sliding into an empty copy of the map with no dots on it.
       worldCopyJump: true,
@@ -298,7 +523,9 @@
 
     state.map = map;
 
-    enableSmoothZoom(map);
+    var smoothZoom = enableSmoothZoom(map);
+    enableDoubleTapDragZoom(map, smoothZoom);
+    enableTouchPanHandoff(map);
 
     // Set the zoom floor before the cluster group is created: markercluster
     // builds its zoom grids from the map's min zoom when it is added and does
@@ -440,6 +667,7 @@
       state.lastFocus = document.activeElement;
       el.viewer.hidden = false;
       document.body.classList.add('viewer-open');
+      showHint(album);
     }
 
     var token = ++state.loadToken;
@@ -508,9 +736,139 @@
     }
   }
 
+  // A translucent hint over the album explaining swipe and drag-down. Shown
+  // once per browser session on the first multi-photo album, then fades and
+  // never gets in the way: any interaction hides it immediately.
+  function hintSeen() {
+    try {
+      return window.sessionStorage.getItem(HINT_KEY) === '1';
+    } catch (error) {
+      return state.hintShown;
+    }
+  }
+
+  function markHintSeen() {
+    state.hintShown = true;
+    try {
+      window.sessionStorage.setItem(HINT_KEY, '1');
+    } catch (error) {
+      // Storage unavailable (private mode); the in-memory flag still covers
+      // this page load.
+    }
+  }
+
+  function showHint(album) {
+    if (!el.hint || !isTouch || album.length < 2 || hintSeen()) return;
+    markHintSeen();
+    el.hint.classList.add('is-visible');
+    state.hintTimer = setTimeout(hideHint, 3500);
+  }
+
+  function hideHint() {
+    if (state.hintTimer) {
+      clearTimeout(state.hintTimer);
+      state.hintTimer = null;
+    }
+    if (el.hint) el.hint.classList.remove('is-visible');
+  }
+
+  // Swipe left/right through the album, or drag down to close. Release-to-
+  // navigate (no follow) keeps it consistent with the arrow buttons.
+  function bindTouchGestures() {
+    if (!isTouch) return;
+
+    el.viewer.addEventListener(
+      'touchstart',
+      function (event) {
+        hideHint();
+        var gesture = state.gesture;
+        var onButton =
+          event.target &&
+          event.target.closest &&
+          event.target.closest('button');
+        if (event.touches.length !== 1 || onButton) {
+          gesture.active = false;
+          return;
+        }
+        gesture.active = true;
+        gesture.x = event.touches[0].clientX;
+        gesture.y = event.touches[0].clientY;
+        gesture.dx = 0;
+        gesture.dy = 0;
+      },
+      { passive: true }
+    );
+
+    el.viewer.addEventListener(
+      'touchmove',
+      function (event) {
+        var gesture = state.gesture;
+        if (!gesture.active || event.touches.length !== 1) return;
+        gesture.dx = event.touches[0].clientX - gesture.x;
+        gesture.dy = event.touches[0].clientY - gesture.y;
+        // Once the drag clearly follows one axis, claim it so the browser does
+        // not read a horizontal drag as back-navigation.
+        if (
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * AXIS_RATIO ||
+          gesture.dy > Math.abs(gesture.dx) * AXIS_RATIO
+        ) {
+          if (event.cancelable) event.preventDefault();
+        }
+      },
+      { passive: false }
+    );
+
+    el.viewer.addEventListener(
+      'touchend',
+      function (event) {
+        var gesture = state.gesture;
+        if (!gesture.active) return;
+        gesture.active = false;
+        var dx = gesture.dx;
+        var dy = gesture.dy;
+        gesture.dx = 0;
+        gesture.dy = 0;
+
+        if (
+          Math.abs(dx) >= SWIPE_MIN &&
+          Math.abs(dx) > Math.abs(dy) * AXIS_RATIO
+        ) {
+          suppressClick();
+          if (event.cancelable) event.preventDefault();
+          show(dx < 0 ? 1 : -1);
+        } else if (dy >= CLOSE_MIN && dy > Math.abs(dx) * AXIS_RATIO) {
+          suppressClick();
+          if (event.cancelable) event.preventDefault();
+          close();
+        }
+      },
+      { passive: false }
+    );
+
+    el.viewer.addEventListener(
+      'touchcancel',
+      function () {
+        state.gesture.active = false;
+        state.gesture.dx = 0;
+        state.gesture.dy = 0;
+      },
+      { passive: true }
+    );
+  }
+
+  // Recognised gestures still let some browsers synthesise a click; swallow
+  // that click so it does not immediately close (or reopen) the viewer.
+  function suppressClick() {
+    state.gesture.suppressClick = true;
+    setTimeout(function () {
+      state.gesture.suppressClick = false;
+    }, 400);
+  }
+
   function close() {
     if (el.viewer.hidden) return;
 
+    hideHint();
     el.viewer.hidden = true;
     state.loadToken += 1;
     state.album = [];
@@ -549,11 +907,28 @@
 
   function bindEvents() {
     el.viewer.addEventListener('click', function (event) {
-      // Clicking the photo itself does nothing; the backdrop (and caption)
-      // close the viewer. The buttons stop propagation before this runs.
-      if (event.target === el.image) return;
+      // Swallow the click a swipe or drag-down just synthesised.
+      if (state.gesture.suppressClick) {
+        state.gesture.suppressClick = false;
+        return;
+      }
+      hideHint();
+      // Only a click outside the photo's bounds closes the viewer. The image
+      // keeps its aspect-ratio box from the width/height attributes even while
+      // it loads, so this covers the spinner as well.
+      var rect = el.image.getBoundingClientRect();
+      if (
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom
+      ) {
+        return;
+      }
       close();
     });
+
+    bindTouchGestures();
 
     el.close.addEventListener('click', function (event) {
       event.stopPropagation();
@@ -572,6 +947,7 @@
 
     document.addEventListener('keydown', function (event) {
       if (el.viewer.hidden) return;
+      hideHint();
       if (event.key === 'Escape') {
         close();
       } else if (event.key === 'ArrowLeft') {
@@ -589,6 +965,7 @@
   }
 
   function boot() {
+    if (isTouch) document.body.classList.add('touch');
     cacheElements();
     bindEvents();
     initMap();
