@@ -513,6 +513,9 @@
       // Double-tap zoom is ours on touch (enableDoubleTapDragZoom); keep
       // Leaflet's double-click handler for mouse/desktop.
       doubleClickZoom: !isTouch,
+      // Leaflet's pinch handler defaults to bounceAtZoomLimits: true, which
+      // lets a pinch zoom past min/max and snap back on release. Clamp it.
+      bounceAtZoomLimits: false,
       // Long-press context menu is unused and would fight double-tap-drag.
       tapHold: false,
       // Panning past the antimeridian re-centres by a full world instead of
