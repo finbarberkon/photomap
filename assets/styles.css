@@ -120,6 +120,15 @@ body.touch .leaflet-control-zoom {
   border: none;
 }
 
+/* A focused stack drops the UA outline; the hover-like lift is its only cue. */
+.cluster-stack:focus-visible {
+  outline: none;
+}
+
+.cluster-stack:focus-visible .stack img {
+  scale: 1.08;
+}
+
 .stack {
   position: relative;
   width: 100%;
@@ -190,7 +199,7 @@ body.touch .leaflet-control-zoom {
 
 /* -------------------------------------------------------------- viewer --- */
 
-/* A translucent white stage, the photo, and a close button. Nothing else.
+/* A white stage, the photo, and a close button. Nothing else.
    The photo keeps a 10% gutter on every side; the count sits at the page's
    top edge, the date at the bottom, and the desktop arrows live in the side
    gutters, rather than pushing the photo. */
@@ -202,12 +211,19 @@ body.touch .leaflet-control-zoom {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.8);
+  background: #fff;
   animation: viewer-in 140ms ease-out;
 }
 
 .viewer[hidden] {
   display: none;
+}
+
+/* The dialog container is the initial focus target, so it must never show a
+   ring. Rings belong on the controls, reached deliberately with Tab. */
+.viewer:focus,
+.viewer:focus-visible {
+  outline: none;
 }
 
 @keyframes viewer-in {
@@ -244,7 +260,7 @@ body.touch .leaflet-control-zoom {
      bottom margins match. */
   max-width: 80vw;
   max-height: 80vh;
-  /* The photo itself is always fully opaque; only the stage is translucent. */
+  /* The photo itself is always fully opaque; the stage behind it is solid white. */
   opacity: 0;
   transition: opacity 160ms ease;
 }

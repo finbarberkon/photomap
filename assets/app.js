@@ -106,8 +106,7 @@
     var date = new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
     return date.toLocaleDateString(undefined, {
       year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+      month: 'long'
     });
   }
 
@@ -644,11 +643,26 @@
     });
   }
 
+  // Enter and Space activate a focused marker or stack, the same as a click.
+  function isActivationKey(key) {
+    if (!key) return false;
+    return (
+      key.key === 'Enter' ||
+      key.keyCode === 13 ||
+      key.key === ' ' ||
+      key.key === 'Spacebar' ||
+      key.keyCode === 32
+    );
+  }
+
   function onClusterClick(event) {
-    // markercluster fires this for any keypress; only Enter activates a stack.
-    if (event.type === 'clusterkeypress') {
-      var key = event.originalEvent;
-      if (key && key.key !== 'Enter' && key.keyCode !== 13) return;
+    // markercluster fires this for any keypress; only activation keys count.
+    if (
+      event.type === 'clusterkeypress' &&
+      event.originalEvent &&
+      !isActivationKey(event.originalEvent)
+    ) {
+      return;
     }
     var album = clusterAlbum(event.layer);
     if (album.length) open(album, 0);
@@ -680,6 +694,9 @@
         });
         marker.on('click', function () {
           open([photo], 0);
+        });
+        marker.on('keypress', function (event) {
+          if (isActivationKey(event.originalEvent)) open([photo], 0);
         });
         markers.push(marker);
       });
@@ -743,7 +760,7 @@
     updateNav();
     replaceHash(photo.id);
 
-    if (!wasOpen) el.close.focus({ preventScroll: true });
+    if (!wasOpen) el.viewer.focus({ preventScroll: true });
   }
 
   // Move within the open album only; never wrap past its ends.
@@ -985,6 +1002,11 @@
       if (el.viewer.hidden) return;
       hideHint();
       if (event.key === 'Escape') {
+        close();
+      } else if (event.key === ' ' || event.key === 'Spacebar') {
+        // A focused button already activates on Space; let it.
+        if (event.target.tagName === 'BUTTON') return;
+        event.preventDefault();
         close();
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
