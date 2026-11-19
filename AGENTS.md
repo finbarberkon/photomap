@@ -120,10 +120,12 @@ instead of loading continuously as it does on desktop.
 
 On touch devices the viewer navigates by swipe instead of the album arrows:
 a horizontal release over ~40px moves between photos, a downward release over
-~90px closes the viewer. The arrows stay in the DOM (visually hidden) so
-assistive tech can still reach them. The one-off gesture hint is tracked in
-`sessionStorage` (not a cookie), so it shows on the first multi-photo album of
-a browser session and never gets in the way again.
+~90px closes the viewer. A tap on the photo (or Enter on desktop) instead
+closes the viewer and flies the map to that photo at `maxZoom`. The arrows
+stay in the DOM (visually hidden) so assistive tech can still reach them. The
+one-off gesture hint is tracked in `sessionStorage` (not a cookie), so it
+shows on the first multi-photo album of a browser session and never gets in
+the way again.
 
 On the map, double-tap then vertical drag zooms continuously, anchored on the
 tap, in the Google Maps direction (drag down zooms in). Tune

@@ -938,6 +938,19 @@
     }
   }
 
+  // Jump from the viewer to the photo's place on the map: close the viewer and
+  // fly in to the photo at the deepest zoom the map allows. Kept short so the
+  // close feels immediate. Read the photo before close(), which clears the
+  // album.
+  function locate() {
+    var photo = state.album[state.albumIndex];
+    if (!photo) return;
+    close();
+    state.map.flyTo([photo.lat, photo.lon], state.map.getMaxZoom(), {
+      duration: 0.5
+    });
+  }
+
   function replaceHash(id) {
     var url = window.location.pathname + window.location.search;
     if (id) url += '#' + encodeURIComponent(id);
@@ -966,9 +979,10 @@
         return;
       }
       hideHint();
-      // Only a click outside the photo's bounds closes the viewer. The image
-      // keeps its aspect-ratio box from the width/height attributes even while
-      // it loads, so this covers the spinner as well.
+      // A click or tap on the photo flies to it on the map; anywhere else in
+      // the viewer just closes. The image keeps its aspect-ratio box from the
+      // width/height attributes even while it loads, so this covers the
+      // spinner as well.
       var rect = el.image.getBoundingClientRect();
       if (
         event.clientX >= rect.left &&
@@ -976,6 +990,7 @@
         event.clientY >= rect.top &&
         event.clientY <= rect.bottom
       ) {
+        locate();
         return;
       }
       close();
@@ -1008,6 +1023,11 @@
         if (event.target.tagName === 'BUTTON') return;
         event.preventDefault();
         close();
+      } else if (event.key === 'Enter' || event.keyCode === 13) {
+        // A focused button already activates on Enter; let it.
+        if (event.target.tagName === 'BUTTON') return;
+        event.preventDefault();
+        locate();
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
         show(-1);
